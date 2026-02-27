@@ -103,7 +103,7 @@ def encode_prompt(conversation: List[Dict[str, str]], tokenizer: PreTrainedToken
     # Encode the cleaned text
     return tokenizer.encode(text)
 
-
+'''
 def preprocess_conversation(
         conversation: List[Dict[str, str]],
         tokenizer: PreTrainedTokenizer,
@@ -145,7 +145,32 @@ def preprocess_conversation(
         "labels": [-100] * len(prompt_with_template) + response_encoded,
         "attention_mask": [1] * len(prompt_with_template + response_encoded),
     }
+'''
 
+def preprocess_conversation(
+        response: str,           # ← đổi thành plain string
+        prompt: str,             # ← thêm prompt riêng
+        tokenizer: PreTrainedTokenizer,
+        user_begin: str = "",
+        user_end: str = "",
+        assistant_begin: str = "",
+        assistant_end: str = "",
+) -> Dict[str, List[int]]:
+    user_begin_encoded = tokenizer.encode(user_begin, add_special_tokens=False)
+    user_end_encoded = tokenizer.encode(user_end, add_special_tokens=False)
+    assistant_begin_encoded = tokenizer.encode(assistant_begin, add_special_tokens=False)
+
+    # Encode prompt và response trực tiếp
+    prompt_encoded = tokenizer.encode(prompt, add_special_tokens=False)
+    response_encoded = tokenizer.encode(response, add_special_tokens=False)
+
+    prompt_with_template = user_begin_encoded + prompt_encoded + user_end_encoded + assistant_begin_encoded
+
+    return {
+        "input_ids": prompt_with_template + response_encoded,
+        "labels": [-100] * len(prompt_with_template) + response_encoded,
+        "attention_mask": [1] * len(prompt_with_template + response_encoded),
+    }
 
 class LogitsExtractor:
     """
@@ -228,9 +253,15 @@ class ConversationDataset(TorchDataset):
             assistant_end (str): Ending token/string for assistant messages.
         """
         # Sort the dataset based on the length of concatenated conversation content
+        '''
         self.dataset = sorted(
             dataset,
             key=lambda row: len("".join([turn['content'] for turn in row[conversation_key]]))
+        )
+        '''
+        self.dataset = sorted(
+            dataset,
+            key=lambda row: len(row[conversation_key])  # string nên dùng len trực tiếp
         )
         self.conversation_key = conversation_key
         self.tokenizer = tokenizer
@@ -243,6 +274,7 @@ class ConversationDataset(TorchDataset):
         """Return the total number of samples."""
         return len(self.dataset)
 
+    '''
     def __getitem__(self, idx: int) -> Dict[str, List[int]]:
         """
         Retrieve and preprocess a sample by index.
@@ -265,7 +297,21 @@ class ConversationDataset(TorchDataset):
         # Assign the index for later reference
         preprocessed_conversation['index'] = row['index']
         return preprocessed_conversation
+    '''
 
+    def __getitem__(self, idx):
+        row = self.dataset[idx]
+        preprocessed = preprocess_conversation(
+            response=row[self.conversation_key],  # plain string
+            prompt=row["prompt"],                 # lấy từ cột prompt
+            tokenizer=self.tokenizer,
+            user_begin=self.user_begin,
+            user_end=self.user_end,
+            assistant_begin=self.assistant_begin,
+            assistant_end=self.assistant_end
+        )
+        preprocessed['index'] = row['index']
+        return preprocessed
 
 class DynamicDataLoader:
     """
@@ -345,6 +391,8 @@ def main():
                         help="Enable debug mode with a limited number of samples.")
     parser.add_argument('--model', type=str, required=True,
                         help="Model name or path for logits extraction.")
+    parser.add_argument('--tokenizer', type=str, required=True,
+                        help="Tokenizer name or path. If not set, uses the model path.")
     parser.add_argument('--pad-token-id', type=int, default=None,
                         help="Token ID used for padding. If not set, the tokenizer's pad_token_id is used.")
     parser.add_argument('--conversation-key', type=str, required=True,
@@ -374,16 +422,23 @@ def main():
         dataset = dataset.select(range(args.debug_mode))
 
     # Initialize the tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(args.model)
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
     pad_token_id: int = args.pad_token_id if args.pad_token_id is not None else tokenizer.pad_token_id
 
     # Initialize the logits extractor
     logits_extractor = LogitsExtractor(load_from=args.model)
 
     # Prepare the dataset list with indices
+    '''
     dataset_list = [{
         'index': row['index'] if 'index' in row else i,
         args.conversation_key: row[args.conversation_key]
+    } for i, row in enumerate(dataset)]
+    '''
+    dataset_list = [{
+        'index': row['index'] if 'index' in row else i,
+        args.conversation_key: row[args.conversation_key],
+        'prompt': row['prompt'],  # ← thêm dòng này
     } for i, row in enumerate(dataset)]
 
     # Split the dataset across multiple processes for distributed processing

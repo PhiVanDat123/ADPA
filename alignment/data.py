@@ -64,8 +64,10 @@ def apply_chat_template(
                 maybe_insert_system_message(chosen_messages, tokenizer)
                 maybe_insert_system_message(rejected_messages, tokenizer)
 
-            example["text_chosen"] = tokenizer.apply_chat_template(chosen_messages, tokenize=False)
-            example["text_rejected"] = tokenizer.apply_chat_template(rejected_messages, tokenize=False)
+            #example["text_chosen"] = tokenizer.apply_chat_template(chosen_messages, tokenize=False)
+            example["text_chosen"] = tokenizer(chosen_messages, tokenize=False)
+            #example["text_rejected"] = tokenizer.apply_chat_template(rejected_messages, tokenize=False)
+            example["text_rejected"] = tokenizer(rejected_messages, tokenize=False)
         else:
             raise ValueError(
                 f"Could not format example as dialogue for `rm` task! Require `[chosen, rejected]` keys but found {list(example.keys())}"
@@ -94,8 +96,10 @@ def apply_chat_template(
                 maybe_insert_system_message(prompt_messages, tokenizer)
 
             example["text_prompt"] = tokenizer.apply_chat_template(prompt_messages, tokenize=False)
-            example["text_chosen"] = tokenizer.apply_chat_template(chosen_messages, tokenize=False, add_special_tokens=False)
-            example["text_rejected"] = tokenizer.apply_chat_template(rejected_messages, tokenize=False, add_special_tokens=False)
+            #example["text_chosen"] = tokenizer.apply_chat_template(chosen_messages, tokenize=False, add_special_tokens=False)
+            example["text_chosen"] = tokenizer(chosen_messages, tokenize=False, add_special_tokens=False)
+            #example["text_rejected"] = tokenizer.apply_chat_template(rejected_messages, tokenize=False, add_special_tokens=False)
+            example["text_rejected"] = tokenizer(rejected_messages, tokenize=False, add_special_tokens=False)
         else:
             raise ValueError(
                 f"Could not format example as dialogue for `{task}` task! Require either the "
