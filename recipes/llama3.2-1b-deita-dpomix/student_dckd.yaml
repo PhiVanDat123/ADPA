@@ -18,7 +18,7 @@ gradient_accumulation_steps: 32
 gradient_checkpointing: true
 gradient_checkpointing_kwargs:
   use_reentrant: False
-learning_rate: 5.0e-7
+learning_rate: 5.0e-6
 log_level: info
 logging_steps: 1
 lr_scheduler_type: cosine
@@ -43,4 +43,5 @@ dpo_weight: 0
 distillation_weight: 1
 chosen_distil_weight: 0.1
 rejected_distil_weight: 0.1
+
 adpa_weight: 0
